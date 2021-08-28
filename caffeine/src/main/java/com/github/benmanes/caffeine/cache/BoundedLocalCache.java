@@ -212,7 +212,7 @@ abstract class BoundedLocalCache<K, V> extends BLCHeader.DrainStatusRef<K, V>
 
   final @Nullable RemovalListener<K, V> evictionListener;
   final @Nullable CacheLoader<K, V> cacheLoader;
-
+  // 缓存的最底层的模型
   final ConcurrentHashMap<Object, Node<K, V>> data;
   final PerformCleanupTask drainBuffersTask;
   final Consumer<Node<K, V>> accessPolicy;
@@ -1751,11 +1751,13 @@ abstract class BoundedLocalCache<K, V> extends BLCHeader.DrainStatusRef<K, V>
       }
       if (isAlive) {
         if (expiresAfterWrite()) {
+          // 如果存在写入后多久失效的情况下，会走到这里
           writeOrderDeque().add(node);
         }
         if (evicts() && (weight > windowMaximum())) {
           accessOrderWindowDeque().offerFirst(node);
         } else if (evicts() || expiresAfterAccess()) {
+          // 设置了读后失效时间
           accessOrderWindowDeque().offerLast(node);
         }
         if (expiresVariable()) {
@@ -2417,6 +2419,7 @@ abstract class BoundedLocalCache<K, V> extends BLCHeader.DrainStatusRef<K, V>
       if ((value != null) && !hasExpired(node, now)) {
         if (!isComputingAsync(node)) {
           tryExpireAfterRead(node, key, value, expiry(), now);
+          // 更新访问时间, 用于淘汰
           setAccessTime(node, now);
         }
 
@@ -2513,9 +2516,11 @@ abstract class BoundedLocalCache<K, V> extends BLCHeader.DrainStatusRef<K, V>
       return oldValue[0];
     }
     if ((oldValue[0] == null) && (cause[0] == null)) {
+      // 添加一个 AddTask 任务用于清理
       afterWrite(new AddTask(node, weight[1]));
     } else {
       int weightedDifference = (weight[1] - weight[0]);
+      // 添加一个更新任务
       afterWrite(new UpdateTask(node, weightedDifference));
     }
 
